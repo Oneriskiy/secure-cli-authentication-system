@@ -20,11 +20,12 @@ colors = {
     "BLUE": "\033[34m",
     "PURPLE": "\033[35m",
     "GRAY": "\033[37m",
-    "RESET": "\033[0m"
+    "RESET": "\033[0m",
 }
 
 load_dotenv()
 
+# logging
 logger = l.getLogger(__name__)
 logger.setLevel(l.DEBUG)
 formatter = l.Formatter("%(asctime)s - %(levelname)s - %(message)s")
@@ -36,6 +37,13 @@ logger.addHandler(console)
 
 
 class User_data:
+    """
+    Класс инициализирует логин и пароль, имеет декораторы для удобного использования атрибутов
+    Атрибуты:
+    username (str): логин пользователя
+    password (str): пароль пользователя
+    """
+
     def __init__(self, username=None, password=None):
         self.__username = username
         self.__password = password
@@ -49,8 +57,15 @@ class User_data:
         return self.__password
 
 
-
 class User_login(User_data):
+    """
+    Класс, наследник User_data, принимает регистрацию пользователя и вход в аккаунт
+    Методы:
+    register(): регистрирует логин и пароль пользователя, для дальнейшей записи в файл
+    login(): принимает логин и пароль для сверки и подтверждения входа
+    check_password(): метод проверяет логин и пароль
+    """
+
     def register(self):
         self.__username = input(
             f"{colors.get('PURPLE')}Введите логин: {colors.get('RESET')}"
@@ -80,9 +95,37 @@ class User_login(User_data):
             print(f"{colors.get('RED')}Неверный логин или пароль{colors.get('RESET')}")
 
     def check_password(self, username_input, password_input):
-        pass
+        with open(users_path, "r") as file:
+            for line in file:
+                username, password, salt = line.strip().split(":")
+                if username == username_input:
+                    unbased_password = base64.b64decode(password)
+                    unbased_salt = base64.b64decode(salt)
+                    break
+            else:
+                print("Пользователь не найден")
+                return False
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=unbased_salt,
+                iterations=200_000,
+            )
+            try:
+                kdf.verify(password_input.encode(), unbased_password)
+                return True
+            except Exception:
+                return False
+
 
 class User_hashing(User_data):
+    """
+    Класс, наследник User_data, хеширует пароль пользователя и заносит в файл
+    Методы:
+    hashing(): Хэширует пароль
+    write_to_file(): Записывает Логин, Хэш и Соль в файл users_txt
+    """
+
     def hashing(self, password):
         salt = os.urandom(16)
         logger.info("\nначало хеширования")
@@ -106,7 +149,6 @@ def decoration_loading():
         print(f"{colors.get('RED')}||{colors.get('RESET')}", end="")
         time.sleep(0.1)
 
-######
 
 def user_menu():
     while True:
@@ -127,7 +169,9 @@ def user_menu():
                 print("Окей...давай начнем регистрацию..")
                 user_login.register()
             else:
-                print(f"\n{colors.get('GRAY')}Вы ввели некорректное число{colors.get('RESET')}")
+                print(
+                    f"\n{colors.get('GRAY')}Вы ввели некорректное число{colors.get('RESET')}"
+                )
             time.sleep(0.5)
         except ValueError:
             print(f"\n{colors.get('GRAY')}Введите число{colors.get('RESET')}")
